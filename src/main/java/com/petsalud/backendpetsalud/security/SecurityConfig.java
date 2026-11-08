@@ -1,5 +1,7 @@
 package com.petsalud.backendpetsalud.security;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +23,9 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 @EnableMethodSecurity // habilita @PreAuthorize en los controladores
 public class SecurityConfig {
+
+    // Monitoreo básico: registra en el log los intentos de acceso sospechosos (401/403)
+    private static final Logger log = LoggerFactory.getLogger("SEGURIDAD");
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final UsuarioDetailsService usuarioDetailsService;
@@ -57,11 +62,16 @@ public class SecurityConfig {
                 // Respuestas JSON claras para 401 (sin token / token inválido) y 403 (rol sin permiso)
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((req, res, e) -> {
+                            log.warn("401 acceso sin token valido | ip={} | {} {}",
+                                    req.getRemoteAddr(), req.getMethod(), req.getRequestURI());
                             res.setStatus(401);
                             res.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             res.getWriter().write("{\"error\":\"No autenticado: token ausente, inválido o expirado\"}");
                         })
                         .accessDeniedHandler((req, res, e) -> {
+                            log.warn("403 acceso denegado | usuario={} | ip={} | {} {}",
+                                    req.getUserPrincipal() != null ? req.getUserPrincipal().getName() : "-",
+                                    req.getRemoteAddr(), req.getMethod(), req.getRequestURI());
                             res.setStatus(403);
                             res.setContentType(MediaType.APPLICATION_JSON_VALUE);
                             res.getWriter().write("{\"error\":\"Acceso denegado: tu rol no tiene permiso\"}");
